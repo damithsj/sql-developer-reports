@@ -11,8 +11,6 @@ More information on installing statpack can be found here: [https://oracle-base.
 ## Download and install SQL Developer
 Download SQL Developer from https://www.oracle.com/database/technologies/appdev/sql-developer.html
 
->_To my fellow IFSers who stick to PLSQL Developer, trust me, SQL Developer is way better, and free!_ 😎
-
 ## Import Reports
 1. Download report XMLs include in this repository
 2. Open the Report pane from View --> Reports
