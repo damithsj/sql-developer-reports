@@ -1,5 +1,7 @@
 # SQL Developer Reports based on statpack
 
+Run these reports as SYS or PERFSTAT user
+
 ## CPU Usage
 Shows CPU usage of host and % of busy CPU used by instance
 - Indication of high Host CPU Usage is that host migth need more CPU
