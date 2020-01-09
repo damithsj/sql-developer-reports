@@ -1,0 +1,949 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<displays>
+<display id="7f8ff300-016f-1000-8001-0a83c0c2ec02" type="" style="Chart" enable="true">
+	<name><![CDATA[Time Model System Stats]]></name>
+	<description><![CDATA[]]></description>
+	<tooltip><![CDATA[]]></tooltip>
+	<drillclass><![CDATA[]]></drillclass>
+	<CustomValues>
+		<PLOT_HGRID_WIDTH><![CDATA[THINNER]]></PLOT_HGRID_WIDTH>
+		<XAXIS_TICK_LABEL_AUTO_ROTATE><![CDATA[true]]></XAXIS_TICK_LABEL_AUTO_ROTATE>
+		<Y1AXIS_SCALE_INCREMENT><![CDATA[20.0]]></Y1AXIS_SCALE_INCREMENT>
+		<Y2AXIS_SCALE_MAXIMUM><![CDATA[80.0]]></Y2AXIS_SCALE_MAXIMUM>
+		<Y1AXIS_LINE_WIDTH><![CDATA[THINNEST]]></Y1AXIS_LINE_WIDTH>
+		<Y1AXIS_LOGARITHMIC_SCALE><![CDATA[false]]></Y1AXIS_LOGARITHMIC_SCALE>
+		<Y1AXIS_TITLE_ALIGNMENT><![CDATA[CENTER]]></Y1AXIS_TITLE_ALIGNMENT>
+		<LEGEND_LOCATION><![CDATA[AUTOMATIC]]></LEGEND_LOCATION>
+		<PLOT_SERIES_OPTIONS_COLOR><![CDATA[\,-16764058,-13395712,-10066279,-16751002,-26368]]></PLOT_SERIES_OPTIONS_COLOR>
+		<LEGEND_ALIGNMENT><![CDATA[LEFT]]></LEGEND_ALIGNMENT>
+		<GRADIENT><![CDATA[false]]></GRADIENT>
+		<XAXIS_LINE_WIDTH><![CDATA[THINNEST]]></XAXIS_LINE_WIDTH>
+		<Y1AXIS_SCALE_MAXIMUM><![CDATA[70.0]]></Y1AXIS_SCALE_MAXIMUM>
+		<XAXIS_TITLE_ALIGNMENT><![CDATA[CENTER]]></XAXIS_TITLE_ALIGNMENT>
+		<XAXIS_TICK_LABEL_ROTATE><![CDATA[HORIZONTAL]]></XAXIS_TICK_LABEL_ROTATE>
+		<Y1AXIS_LOGARITHMIC_BASE><![CDATA[BASE_10]]></Y1AXIS_LOGARITHMIC_BASE>
+		<TYPE><![CDATA[BAR_VERT_STACK]]></TYPE>
+		<GRID_WIDTH><![CDATA[THINNER]]></GRID_WIDTH>
+		<PLOT_DATALABELS_BAR_POSITION><![CDATA[ABOVE]]></PLOT_DATALABELS_BAR_POSITION>
+		<FOOTNOTE_ALIGNMENT><![CDATA[LEFT]]></FOOTNOTE_ALIGNMENT>
+		<XAXIS_TICK_LABEL_SKIP_MODE><![CDATA[AUTOMATIC]]></XAXIS_TICK_LABEL_SKIP_MODE>
+		<Y2AXIS_LOGARITHMIC_BASE><![CDATA[BASE_10]]></Y2AXIS_LOGARITHMIC_BASE>
+		<STYLE><![CDATA[Default]]></STYLE>
+		<TITLE_ALIGNMENT><![CDATA[LEFT]]></TITLE_ALIGNMENT>
+		<Y2AXIS_TICK_LABEL_ROTATE><![CDATA[HORIZONTAL]]></Y2AXIS_TICK_LABEL_ROTATE>
+		<Y2AXIS_SCALE_MINIMUM><![CDATA[10.0]]></Y2AXIS_SCALE_MINIMUM>
+		<XAXIS_TITLE><![CDATA[false]]></XAXIS_TITLE>
+		<THREED><![CDATA[false]]></THREED>
+		<Y2AXIS_LINE_WIDTH><![CDATA[THINNEST]]></Y2AXIS_LINE_WIDTH>
+		<Y1AXIS_TICK_LABEL_ROTATE><![CDATA[HORIZONTAL]]></Y1AXIS_TICK_LABEL_ROTATE>
+		<Y2AXIS_SCALE_INCREMENT><![CDATA[20.0]]></Y2AXIS_SCALE_INCREMENT>
+		<PLOT_VGRID_WIDTH><![CDATA[THINNER]]></PLOT_VGRID_WIDTH>
+		<Y2AXIS_TITLE_ALIGNMENT><![CDATA[CENTER]]></Y2AXIS_TITLE_ALIGNMENT>
+		<SUBTITLE_ALIGNMENT><![CDATA[LEFT]]></SUBTITLE_ALIGNMENT>
+	</CustomValues>
+	<query>
+		<sql><![CDATA[WITH snapshotjoin AS(
+     select s.SNAP_TIME, DBID, s.instance_number, SNAP_ID, LAG(SNAP_ID, 1, 0) OVER (ORDER BY s.SNAP_TIME) AS PREV_SNAP_ID
+from stats$snapshot s
+      WHERE s.instance_number = ( SELECT instance_number FROM v$instance )
+      ORDER BY s.SNAP_TIME
+),
+data AS
+(select times.SNAP_TIME, times.stat_name, to_char(times.tdif/1000000,'99990.00') as db_time, (times.tdif/dbtime.db_time)*100 as db_time_pers from
+(select sj.SNAP_TIME, sn.stat_name
+             , (e.value - b.value)        tdif
+          from stats$sys_time_model e
+             , stats$sys_time_model b
+             , stats$time_model_statname sn
+             , snapshotjoin sj
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number
+           and b.stat_id                = e.stat_id
+           and sn.stat_id               = e.stat_id
+           and e.value - b.value        > 0
+           and sn.stat_name IN ('DB CPU','sql execute elapsed time')) times
+ INNER JOIN
+ (select sj.SNAP_TIME, sn.stat_name
+             , (e.value - b.value)        db_time
+          from stats$sys_time_model e
+             , stats$sys_time_model b
+             , stats$time_model_statname sn
+             , snapshotjoin sj
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number
+           and b.stat_id                = e.stat_id
+           and sn.stat_id               = e.stat_id
+           and e.value - b.value        > 0
+           and sn.stat_name = 'DB time') dbtime
+ ON times.snap_time = dbtime.snap_time
+)      
+select data.snap_time, data.stat_name, data.db_time as "DB time", snapshotjoin.dbid, snapshotjoin.instance_number, snapshotjoin.snap_id, snapshotjoin.prev_snap_id  from data, snapshotjoin
+where data.snap_time = snapshotjoin.snap_time
+and data.snap_time > to_date(:start_time, 'yy.mm.dd hh24:mi')
+and data.snap_time < to_date(:end_time,'yy.mm.dd hh24:mi') + 1
+order by data.SNAP_TIME, data.stat_name]]></sql>
+		<binds>
+			<bind id="start_time">
+				<prompt><![CDATA[start_time (yy.mm.dd)]]></prompt>
+				<tooltip><![CDATA[start_time]]></tooltip>
+				<value><![CDATA[19.12.21]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+			<bind id="end_time">
+				<prompt><![CDATA[end_time (yy.mm.dd)]]></prompt>
+				<tooltip><![CDATA[end_time]]></tooltip>
+				<value><![CDATA[19.12.31]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+		</binds>
+	</query>
+		<pdf version="VERSION_1_7" compression="CONTENT">
+			<docproperty title="null" author="null" subject="null" keywords="null" />
+			<cell toppadding="2" bottompadding="2" leftpadding="2" rightpadding="2" horizontalalign="LEFT" verticalalign="TOP" wrap="true" />
+			<column>
+				<heading font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="FIRST_PAGE" />
+				<footing font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="NONE" />
+				<blob blob="NONE" zip="false" />
+			</column>
+			<table font="null" size="10" style="NORMAL" color="-16777216" userowshading="false" oddrowshading="-1" evenrowshading="-1" showborders="true" spacingbefore="12" spacingafter="12" horizontalalign="LEFT" />
+			<header enable="false" generatedate="false">
+				<data>
+				null				</data>
+			</header>
+			<footer enable="false" generatedate="false">
+				<data value="null" />
+			</footer>
+			<pagesetup papersize="LETTER" orientation="1" measurement="in" margintop="1.0" marginbottom="1.0" marginleft="1.0" marginright="1.0" />
+		</pdf>
+	<display id="null" type="" style="plsql-dbms_output" enable="true">
+		<name><![CDATA[SQL Execute Elapsed Time]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[declare
+
+
+dbelap_ NUMBER;
+esmt_ NUMBER;
+evc_ NUMBER;
+begin_snap_ NUMBER;
+end_snap_ NUMBER;
+dbid_ NUMBER;
+inst_num_ NUMBER;
+
+SNAP_TIME_ DATE := :SNAP_TIME;
+STAT_NAME_ VARCHAR2(4000) := 'sql execute elapsed time';
+
+--  definitions from sprepcon.sql
+top_pct_sql NUMBER := 1;
+num_rows_per_hash NUMBER := 4;
+top_n_sql NUMBER := 65;
+top_n_segstat NUMBER := 5;
+-- other definitions
+
+btogb NUMBER := 1073741824;--  Bytes to gigabytes
+btomb NUMBER := 1048576;--  Bytes to megabytes
+btokb NUMBER := 1024;--  Bytes to kilobytes
+daystosecs  NUMBER := 86400;--  Days to seconds
+cstos  NUMBER := 100;--  Centiseconds to seconds
+ustoms NUMBER := 1000;--  Microseconds to milli-seconds
+ustocs NUMBER := 10000;--  Microseconds to centi-seconds
+ustos  NUMBER := 1000000;--  Microseconds to seconds
+top_n_events NUMBER := 5;
+total_event_time_s_th NUMBER := 0.001;
+pct_cpu_diff_th NUMBER := 5;
+
+--1
+CURSOR get_stat_info IS
+WITH snapshotjoin AS(
+     select s.SNAP_TIME, DBID, s.instance_number, SNAP_ID, LAG(SNAP_ID, 1, 0) OVER (ORDER BY s.SNAP_TIME) AS PREV_SNAP_ID
+from stats$snapshot s
+      WHERE s.instance_number = ( SELECT instance_number FROM v$instance )
+      ORDER BY s.SNAP_TIME
+),
+cpustat AS
+(select sj.snap_id, sj.prev_snap_id, sj.DBID, sj.instance_number, (e.value - b.value)        stat_time --this can be vary based on the parameter
+          from stats$sys_time_model e
+             , stats$sys_time_model b
+             , stats$time_model_statname sn
+             , snapshotjoin sj
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number
+           and sj.SNAP_TIME = SNAP_TIME_
+           and b.stat_id                = e.stat_id
+           and sn.stat_id               = e.stat_id
+           and e.value - b.value        > 0
+           and sn.stat_name = STAT_NAME_)
+           select * from cpustat;
+
+--2
+CURSOR get_snapshot_info IS
+select e.version_count_th evc,
+  e.sharable_mem_th esmt
+  from stats$snapshot b
+     , stats$snapshot e
+ where b.snap_id         = begin_snap_
+   and e.snap_id         = end_snap_
+   and b.dbid            = dbid_
+   and e.dbid            = dbid_
+   and b.instance_number = inst_num_
+   and e.instance_number = inst_num_
+   and b.startup_time    = e.startup_time
+   and b.snap_time       < e.snap_time;
+
+--3
+CURSOR get_temp_sqlstats IS
+select /*+ orderd use_nl (topn st) */
+       decode(st.piece
+             ,0
+             ,'<br><b>' || lpad(to_char(delta_elapsed_time/ustos,'99990.00')
+                   , 10) || ' ' ||
+              lpad(to_char(delta_executions,'999,999,999')
+                   , 12) || ' ' ||
+              lpad(decode(delta_executions
+                         ,0 , ' '
+                         ,to_char(delta_elapsed_time/ustos/delta_executions,'999990.00'))
+                   , 10) || ' ' ||
+              lpad(decode( dbelap_, 0, ' '
+                         , to_char(100*delta_elapsed_time/dbelap_,'999.0'))
+                   , 6)  || ' ' ||
+              lpad(to_char(delta_cpu_time/ustos,'99990.00')
+                   , 10) || ' ' ||
+              lpad(to_char(delta_disk_reads,'99,999,999,999')
+                   , 15) || ' ' ||
+              lpad(topn.old_hash_value, 10)  || ' </b>' ||
+              decode(topn.module, null, '<br><i>' || st.sql_text || '</i>'
+                    ,'<br>Module: '||topn.module || '<br><i>' ||st.sql_text || '</i>')
+            , '<i>' || st.sql_text  || '</i>')   aa
+     , topn.old_hash_value hv
+  from (
+      select *
+           from (
+            select * from
+            (
+             select old_hash_value, text_subset, module
+                  , delta_buffer_gets, delta_executions, delta_cpu_time
+                  , delta_elapsed_time, avg_hard_parse_time, delta_disk_reads, delta_parse_calls
+                  , max_sharable_mem, last_sharable_mem
+                  , delta_version_count, max_version_count, last_version_count
+                  , delta_cluster_wait_time, delta_rows_processed
+              from ( select -- sum deltas
+                            old_hash_value
+                          , text_subset
+                          , module
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address) 
+                                            or (buffer_gets < prev_buffer_gets)
+                                          then buffer_gets
+                                          else buffer_gets - prev_buffer_gets
+                                     end
+                               end)                    delta_buffer_gets
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (executions < prev_executions)
+                                          then executions
+                                          else executions - prev_executions
+                                     end
+                                end)                   delta_executions
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (cpu_time < prev_cpu_time)
+                                          then cpu_time
+                                          else cpu_time - prev_cpu_time
+                                     end
+                                end)                  delta_cpu_time
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (elapsed_time < prev_elapsed_time)
+                                          then elapsed_time
+                                          else elapsed_time - prev_elapsed_time
+                                     end
+                                end)                  delta_elapsed_time
+                          , avg(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else avg_hard_parse_time
+                                end)                  avg_hard_parse_time
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (disk_reads < prev_disk_reads)
+                                          then disk_reads
+                                          else disk_reads - prev_disk_reads
+                                     end
+                                end)                   delta_disk_reads
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (parse_calls < prev_parse_calls)
+                                          then parse_calls
+                                          else parse_calls - prev_parse_calls
+                                     end
+                                end)                   delta_parse_calls
+                          , max(sharable_mem)          max_sharable_mem
+                          , sum(case when snap_id = end_snap_
+                                     then last_sharable_mem
+                                     else 0
+                                end)                   last_sharable_mem
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (version_count < prev_version_count)
+                                          then version_count
+                                          else version_count - prev_version_count
+                                     end
+                                end)                   delta_version_count
+                          , max(version_count)         max_version_count
+                          , sum(case when snap_id = end_snap_
+                                     then last_version_count
+                                     else 0
+                                end)                   last_version_count
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (cluster_wait_time < prev_cluster_wait_time)
+                                          then cluster_wait_time
+                                          else cluster_wait_time - prev_cluster_wait_time
+                                     end
+                                end)                   delta_cluster_wait_time
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (rows_processed < prev_rows_processed)
+                                          then rows_processed
+                                          else rows_processed - prev_rows_processed
+                                     end
+                                end)                   delta_rows_processed
+                      from (select /*+ first_rows */
+                                   -- windowing function
+                                   snap_id
+                                 , old_hash_value
+                                 , text_subset
+                                 , module
+                                 , (lag(snap_id, 1, -1) 
+                                   over (partition by old_hash_value
+                                                    , dbid
+                                                    , instance_number
+                                        order by snap_id))    prev_snap_id
+                                 , (lead(snap_id, 1, -1)
+                                   over (partition by old_hash_value
+                                                    , dbid
+                                                    , instance_number
+                                        order by snap_id))    next_snap_id
+                                 , address
+                                 ,(lag(address, 1, hextoraw(0)) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_address
+                                 , buffer_gets
+                                 ,(lag(buffer_gets, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_buffer_gets
+                                 , cpu_time
+                                 ,(lag(cpu_time, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_cpu_time
+                                 , executions
+                                 ,(lag(executions, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_executions
+                                 , elapsed_time
+                                 ,(lag(elapsed_time, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_elapsed_time
+                                 , avg_hard_parse_time
+                                 , disk_reads
+                                 ,(lag(disk_reads, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_disk_reads
+                                 , parse_calls
+                                 ,(lag(parse_calls, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_parse_calls
+                                 , sharable_mem
+                                 ,(last_value(sharable_mem) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   last_sharable_mem
+                                 ,(lag(sharable_mem, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_sharable_mem
+                                 , version_count
+                                 ,(lag(version_count, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_version_count
+                                 ,(last_value(version_count) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   last_version_count
+                                 , cluster_wait_time
+                                 ,(lag(cluster_wait_time, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_cluster_wait_time
+                                 , rows_processed
+                                 ,(lag(rows_processed, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_rows_processed
+                            from stats$sql_summary s
+                           where s.snap_id between begin_snap_ and end_snap_
+                             and s.dbid            = dbid_
+                             and s.instance_number = inst_num_
+                           )
+                    group by old_hash_value
+                           , text_subset
+                           , module
+                   )
+             where delta_buffer_gets       > 0
+                or delta_executions        > 0
+                or delta_cpu_time          > 0
+                or delta_disk_reads        > 0
+                or delta_parse_calls       > 0
+                or max_sharable_mem       >= esmt_
+                or max_version_count      >= evc_
+                or delta_cluster_wait_time > 0
+                )
+                where   decode(dbelap_, 0, 2, null, 2, 100*delta_elapsed_time/dbelap_)
+                                     > decode(dbelap_, 0, 1, null, 2, top_pct_sql)
+                               order by delta_elapsed_time desc
+                               )
+          where rownum <= top_n_sql
+       ) topn
+     , stats$sqltext st
+where st.old_hash_value(+) = topn.old_hash_value
+  and st.text_subset(+)    = topn.text_subset
+  and st.piece             < num_rows_per_hash
+order by topn.delta_elapsed_time desc, topn.old_hash_value, st.piece;
+    
+begin
+OPEN get_stat_info;
+FETCH get_stat_info INTO end_snap_, begin_snap_, dbid_, inst_num_, dbelap_;
+CLOSE get_stat_info;
+
+OPEN get_snapshot_info;
+FETCH get_snapshot_info INTO evc_, esmt_;
+CLOSE get_snapshot_info;
+
+DBMS_OUTPUT.ENABLE(100000);
+
+dbms_output.put_line('<h2>SQL ordered by Elapsed time</h2>');
+dbms_output.put_line('<pre>');
+dbms_output.put_line('-> DB/Inst: ' || dbid_ || '/' || inst_num_);
+dbms_output.put_line('-> Snaps: ' || begin_snap_ || '-' || end_snap_);
+dbms_output.put_line('-> Total DB Time (s): ' || to_char(dbelap_/ustos,'99990.00'));
+dbms_output.put_line('-> SQL reported below exceeded  ' || top_pct_sql|| '% of Total DB Time' );
+dbms_output.put_line('</pre>');
+
+
+dbms_output.put_line('<pre>');
+dbms_output.put_line('|---------- ------------ ---------- ------ ---------- --------------- ----------|');
+dbms_output.put_line('|  Elapsed                Elap per           CPU                      Old       |');
+dbms_output.put_line('|  Time (s)   Executions  Exec (s)  %Total   Time (s) Physical reads  Hash Value|');
+dbms_output.put_line('|---------- ------------ ---------- ------ ---------- --------------- ----------|');
+dbms_output.put_line('</pre>');
+
+dbms_output.put_line('<pre>');
+FOR rec_ IN get_temp_sqlstats LOOP
+
+dbms_output.put_line(rec_.aa);
+
+END LOOP;
+dbms_output.put_line('</pre>');
+end;]]></sql>
+			<binds>
+				<bind id="SNAP_TIME">
+					<prompt><![CDATA[SNAP_TIME]]></prompt>
+					<tooltip><![CDATA[SNAP_TIME]]></tooltip>
+					<value><![CDATA[NULL_VALUE]]></value>
+					<bracket><![CDATA[null]]></bracket>
+				</bind>
+			</binds>
+		</query>
+			<pdf version="VERSION_1_7" compression="CONTENT">
+				<docproperty title="null" author="null" subject="null" keywords="null" />
+				<cell toppadding="2" bottompadding="2" leftpadding="2" rightpadding="2" horizontalalign="LEFT" verticalalign="TOP" wrap="true" />
+				<column>
+					<heading font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="FIRST_PAGE" />
+					<footing font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="NONE" />
+					<blob blob="NONE" zip="false" />
+				</column>
+				<table font="null" size="10" style="NORMAL" color="-16777216" userowshading="false" oddrowshading="-1" evenrowshading="-1" showborders="true" spacingbefore="12" spacingafter="12" horizontalalign="LEFT" />
+				<header enable="false" generatedate="false">
+					<data>
+					null					</data>
+				</header>
+				<footer enable="false" generatedate="false">
+					<data value="null" />
+				</footer>
+				<pagesetup papersize="LETTER" orientation="1" measurement="in" margintop="1.0" marginbottom="1.0" marginleft="1.0" marginright="1.0" />
+			</pdf>
+	</display>
+	<display id="null" type="" style="plsql-dbms_output" enable="true">
+		<name><![CDATA[DB CPU]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[declare
+
+
+dbelap_ NUMBER;
+esmt_ NUMBER;
+evc_ NUMBER;
+begin_snap_ NUMBER;
+end_snap_ NUMBER;
+dbid_ NUMBER;
+inst_num_ NUMBER;
+
+SNAP_TIME_ DATE := :SNAP_TIME;
+STAT_NAME_ VARCHAR2(4000) := 'DB CPU';
+
+--  definitions from sprepcon.sql
+top_pct_sql NUMBER := 1;
+num_rows_per_hash NUMBER := 4;
+top_n_sql NUMBER := 65;
+top_n_segstat NUMBER := 5;
+-- other definitions
+
+btogb NUMBER := 1073741824;--  Bytes to gigabytes
+btomb NUMBER := 1048576;--  Bytes to megabytes
+btokb NUMBER := 1024;--  Bytes to kilobytes
+daystosecs  NUMBER := 86400;--  Days to seconds
+cstos  NUMBER := 100;--  Centiseconds to seconds
+ustoms NUMBER := 1000;--  Microseconds to milli-seconds
+ustocs NUMBER := 10000;--  Microseconds to centi-seconds
+ustos  NUMBER := 1000000;--  Microseconds to seconds
+top_n_events NUMBER := 5;
+total_event_time_s_th NUMBER := 0.001;
+pct_cpu_diff_th NUMBER := 5;
+
+--1
+CURSOR get_stat_info IS
+WITH snapshotjoin AS(
+     select s.SNAP_TIME, DBID, s.instance_number, SNAP_ID, LAG(SNAP_ID, 1, 0) OVER (ORDER BY s.SNAP_TIME) AS PREV_SNAP_ID
+from stats$snapshot s
+      WHERE s.instance_number = ( SELECT instance_number FROM v$instance )
+      ORDER BY s.SNAP_TIME
+),
+cpustat AS
+(select sj.snap_id, sj.prev_snap_id, sj.DBID, sj.instance_number, (e.value - b.value)        stat_time --this can be vary based on the parameter
+          from stats$sys_time_model e
+             , stats$sys_time_model b
+             , stats$time_model_statname sn
+             , snapshotjoin sj
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number
+           and sj.SNAP_TIME = SNAP_TIME_
+           and b.stat_id                = e.stat_id
+           and sn.stat_id               = e.stat_id
+           and e.value - b.value        > 0
+           and sn.stat_name = STAT_NAME_)
+           select * from cpustat;
+
+--2
+CURSOR get_snapshot_info IS
+select e.version_count_th evc,
+  e.sharable_mem_th esmt
+  from stats$snapshot b
+     , stats$snapshot e
+ where b.snap_id         = begin_snap_
+   and e.snap_id         = end_snap_
+   and b.dbid            = dbid_
+   and e.dbid            = dbid_
+   and b.instance_number = inst_num_
+   and e.instance_number = inst_num_
+   and b.startup_time    = e.startup_time
+   and b.snap_time       < e.snap_time;
+
+--3
+CURSOR get_temp_sqlstats IS
+select /*+ orderd use_nl (topn st) */
+       decode(st.piece
+             ,0
+             ,'<br><b>' || lpad(to_char(delta_cpu_time/ustos,'99990.00')
+                   , 10) || ' ' ||
+              lpad(to_char(delta_executions,'999,999,999')
+                   , 12) || ' ' ||
+              lpad(decode(delta_executions
+                         ,0 , ' '
+                         ,to_char(delta_cpu_time/ustos/delta_executions,'999990.00'))
+                   , 10) || ' ' ||
+              lpad(decode( dbelap_, 0, ' '
+                         , to_char(100*delta_cpu_time/dbelap_,'999.0'))
+                   , 6)  || ' ' ||
+              lpad(to_char(delta_elapsed_time/ustos,'99990.00')
+                   , 10) || ' ' ||
+              lpad(to_char(delta_buffer_gets,'99,999,999,999')
+                   , 15) || ' ' ||
+              lpad(topn.old_hash_value, 10)  || ' </b>' ||
+              decode(topn.module, null, '<br><i>' || st.sql_text || '</i>'
+                    ,'<br>Module: '||topn.module || '<br><i>' ||st.sql_text || '</i>')
+            , '<i>' || st.sql_text  || '</i>')   aa
+     , topn.old_hash_value hv
+  from (
+      select *
+           from (
+            select * from
+            (
+             select old_hash_value, text_subset, module
+                  , delta_buffer_gets, delta_executions, delta_cpu_time
+                  , delta_elapsed_time, avg_hard_parse_time, delta_disk_reads, delta_parse_calls
+                  , max_sharable_mem, last_sharable_mem
+                  , delta_version_count, max_version_count, last_version_count
+                  , delta_cluster_wait_time, delta_rows_processed
+              from ( select -- sum deltas
+                            old_hash_value
+                          , text_subset
+                          , module
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address) 
+                                            or (buffer_gets < prev_buffer_gets)
+                                          then buffer_gets
+                                          else buffer_gets - prev_buffer_gets
+                                     end
+                               end)                    delta_buffer_gets
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (executions < prev_executions)
+                                          then executions
+                                          else executions - prev_executions
+                                     end
+                                end)                   delta_executions
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (cpu_time < prev_cpu_time)
+                                          then cpu_time
+                                          else cpu_time - prev_cpu_time
+                                     end
+                                end)                  delta_cpu_time
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (elapsed_time < prev_elapsed_time)
+                                          then elapsed_time
+                                          else elapsed_time - prev_elapsed_time
+                                     end
+                                end)                  delta_elapsed_time
+                          , avg(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else avg_hard_parse_time
+                                end)                  avg_hard_parse_time
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (disk_reads < prev_disk_reads)
+                                          then disk_reads
+                                          else disk_reads - prev_disk_reads
+                                     end
+                                end)                   delta_disk_reads
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (parse_calls < prev_parse_calls)
+                                          then parse_calls
+                                          else parse_calls - prev_parse_calls
+                                     end
+                                end)                   delta_parse_calls
+                          , max(sharable_mem)          max_sharable_mem
+                          , sum(case when snap_id = end_snap_
+                                     then last_sharable_mem
+                                     else 0
+                                end)                   last_sharable_mem
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (version_count < prev_version_count)
+                                          then version_count
+                                          else version_count - prev_version_count
+                                     end
+                                end)                   delta_version_count
+                          , max(version_count)         max_version_count
+                          , sum(case when snap_id = end_snap_
+                                     then last_version_count
+                                     else 0
+                                end)                   last_version_count
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (cluster_wait_time < prev_cluster_wait_time)
+                                          then cluster_wait_time
+                                          else cluster_wait_time - prev_cluster_wait_time
+                                     end
+                                end)                   delta_cluster_wait_time
+                          , sum(case
+                                when snap_id = begin_snap_ and prev_snap_id = -1 
+                                then 0
+                                else
+                                     case when (address != prev_address)
+                                            or (rows_processed < prev_rows_processed)
+                                          then rows_processed
+                                          else rows_processed - prev_rows_processed
+                                     end
+                                end)                   delta_rows_processed
+                      from (select /*+ first_rows */
+                                   -- windowing function
+                                   snap_id
+                                 , old_hash_value
+                                 , text_subset
+                                 , module
+                                 , (lag(snap_id, 1, -1) 
+                                   over (partition by old_hash_value
+                                                    , dbid
+                                                    , instance_number
+                                        order by snap_id))    prev_snap_id
+                                 , (lead(snap_id, 1, -1)
+                                   over (partition by old_hash_value
+                                                    , dbid
+                                                    , instance_number
+                                        order by snap_id))    next_snap_id
+                                 , address
+                                 ,(lag(address, 1, hextoraw(0)) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_address
+                                 , buffer_gets
+                                 ,(lag(buffer_gets, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_buffer_gets
+                                 , cpu_time
+                                 ,(lag(cpu_time, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_cpu_time
+                                 , executions
+                                 ,(lag(executions, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_executions
+                                 , elapsed_time
+                                 ,(lag(elapsed_time, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_elapsed_time
+                                 , avg_hard_parse_time
+                                 , disk_reads
+                                 ,(lag(disk_reads, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_disk_reads
+                                 , parse_calls
+                                 ,(lag(parse_calls, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_parse_calls
+                                 , sharable_mem
+                                 ,(last_value(sharable_mem) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   last_sharable_mem
+                                 ,(lag(sharable_mem, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_sharable_mem
+                                 , version_count
+                                 ,(lag(version_count, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_version_count
+                                 ,(last_value(version_count) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   last_version_count
+                                 , cluster_wait_time
+                                 ,(lag(cluster_wait_time, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_cluster_wait_time
+                                 , rows_processed
+                                 ,(lag(rows_processed, 1, 0) 
+                                   over (partition by old_hash_value 
+                                                    , dbid
+                                                    , instance_number
+                                         order by snap_id))   prev_rows_processed
+                            from stats$sql_summary s
+                           where s.snap_id between begin_snap_ and end_snap_
+                             and s.dbid            = dbid_
+                             and s.instance_number = inst_num_
+                           )
+                    group by old_hash_value
+                           , text_subset
+                           , module
+                   )
+             where delta_buffer_gets       > 0
+                or delta_executions        > 0
+                or delta_cpu_time          > 0
+                or delta_disk_reads        > 0
+                or delta_parse_calls       > 0
+                or max_sharable_mem       >= esmt_
+                or max_version_count      >= evc_
+                or delta_cluster_wait_time > 0
+                )
+                where   decode(dbelap_, 0, 2, null, 2, 100*delta_cpu_time/dbelap_)
+                                     > decode(dbelap_, 0, 1, null, 2, top_pct_sql)
+                               order by delta_cpu_time desc
+                               )
+          where rownum <= top_n_sql
+       ) topn
+     , stats$sqltext st
+where st.old_hash_value(+) = topn.old_hash_value
+  and st.text_subset(+)    = topn.text_subset
+  and st.piece             < num_rows_per_hash
+order by topn.delta_cpu_time desc, topn.old_hash_value, st.piece;
+    
+begin
+
+DBMS_OUTPUT.ENABLE(100000);
+OPEN get_stat_info;
+FETCH get_stat_info INTO end_snap_, begin_snap_, dbid_, inst_num_, dbelap_;
+CLOSE get_stat_info;
+
+OPEN get_snapshot_info;
+FETCH get_snapshot_info INTO evc_, esmt_;
+CLOSE get_snapshot_info;
+
+
+
+dbms_output.put_line('<h2>SQL ordered by CPU</h2>');
+dbms_output.put_line('<pre>');
+dbms_output.put_line('-> DB/Inst: ' || dbid_ || '/' || inst_num_);
+dbms_output.put_line('-> Snaps: ' || begin_snap_ || '-' || end_snap_);
+dbms_output.put_line('-> Total DB CPU (s): ' || to_char(dbelap_/ustos,'99990.00'));
+dbms_output.put_line('-> SQL reported below exceeded  ' || top_pct_sql|| '% of Total DB CPU' );
+dbms_output.put_line('</pre>');
+
+
+dbms_output.put_line('<pre>');
+dbms_output.put_line('|---------- ------------ ---------- ------ ---------- --------------- ----------|');
+dbms_output.put_line('|  CPU                    CPU per            Elapsd                   Old       |');
+dbms_output.put_line('|  Time (s)   Executions  Exec (s)  %Total   Time (s) Buffer Gets     Hash Value|');
+dbms_output.put_line('|---------- ------------ ---------- ------ ---------- --------------- ----------|');
+dbms_output.put_line('</pre>');
+
+dbms_output.put_line('<pre>');
+FOR rec_ IN get_temp_sqlstats LOOP
+
+dbms_output.put_line(rec_.aa);
+
+END LOOP;
+dbms_output.put_line('</pre>');
+end;]]></sql>
+		</query>
+			<pdf version="VERSION_1_7" compression="CONTENT">
+				<docproperty title="null" author="null" subject="null" keywords="null" />
+				<cell toppadding="2" bottompadding="2" leftpadding="2" rightpadding="2" horizontalalign="LEFT" verticalalign="TOP" wrap="true" />
+				<column>
+					<heading font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="FIRST_PAGE" />
+					<footing font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="NONE" />
+					<blob blob="NONE" zip="false" />
+				</column>
+				<table font="null" size="10" style="NORMAL" color="-16777216" userowshading="false" oddrowshading="-1" evenrowshading="-1" showborders="true" spacingbefore="12" spacingafter="12" horizontalalign="LEFT" />
+				<header enable="false" generatedate="false">
+					<data>
+					null					</data>
+				</header>
+				<footer enable="false" generatedate="false">
+					<data value="null" />
+				</footer>
+				<pagesetup papersize="LETTER" orientation="1" measurement="in" margintop="1.0" marginbottom="1.0" marginleft="1.0" marginright="1.0" />
+			</pdf>
+	</display>
+</display>
+</displays>

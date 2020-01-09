@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<displays>
+<display id="81dbf8cd-016f-1000-8020-0a83c0c2ec02" type="" style="Chart" enable="true">
+	<name><![CDATA[CPU Usage]]></name>
+	<description><![CDATA[CPU usage of host and % of busy CPU used by instance]]></description>
+	<tooltip><![CDATA[]]></tooltip>
+	<drillclass><![CDATA[]]></drillclass>
+	<CustomValues>
+		<PLOT_HGRID_WIDTH><![CDATA[THINNER]]></PLOT_HGRID_WIDTH>
+		<PLOT_DATATIPS_CUMULATIVE_VALUE><![CDATA[false]]></PLOT_DATATIPS_CUMULATIVE_VALUE>
+		<Y1AXIS_SCALE_INCREMENT><![CDATA[10.0]]></Y1AXIS_SCALE_INCREMENT>
+		<Y2AXIS_SCALE_MAXIMUM><![CDATA[80.0]]></Y2AXIS_SCALE_MAXIMUM>
+		<Y1AXIS_LINE_WIDTH><![CDATA[THINNER]]></Y1AXIS_LINE_WIDTH>
+		<Y1AXIS_SCALE_MAXIMUM_AUTOMATIC><![CDATA[false]]></Y1AXIS_SCALE_MAXIMUM_AUTOMATIC>
+		<Y1AXIS_TITLE_ALIGNMENT><![CDATA[CENTER]]></Y1AXIS_TITLE_ALIGNMENT>
+		<LEGEND_LOCATION><![CDATA[AUTOMATIC]]></LEGEND_LOCATION>
+		<PLOT_SERIES_OPTIONS_COLOR><![CDATA[\,-16737844,-13382656,-10066279,-16751002,-26368]]></PLOT_SERIES_OPTIONS_COLOR>
+		<LEGEND_ALIGNMENT><![CDATA[LEFT]]></LEGEND_ALIGNMENT>
+		<GRADIENT><![CDATA[false]]></GRADIENT>
+		<XAXIS_LINE_WIDTH><![CDATA[THINNEST]]></XAXIS_LINE_WIDTH>
+		<Y1AXIS_SCALE_MAXIMUM><![CDATA[100.0]]></Y1AXIS_SCALE_MAXIMUM>
+		<XAXIS_TITLE_ALIGNMENT><![CDATA[CENTER]]></XAXIS_TITLE_ALIGNMENT>
+		<XAXIS_LOGARITHMIC_BASE><![CDATA[BASE_10]]></XAXIS_LOGARITHMIC_BASE>
+		<XAXIS_TICK_LABEL_ROTATE><![CDATA[HORIZONTAL]]></XAXIS_TICK_LABEL_ROTATE>
+		<Y1AXIS_LOGARITHMIC_BASE><![CDATA[BASE_10]]></Y1AXIS_LOGARITHMIC_BASE>
+		<TYPE><![CDATA[AREA_VERT_ABS]]></TYPE>
+		<GRID_WIDTH><![CDATA[THINNER]]></GRID_WIDTH>
+		<PLOT_DATALABELS_BAR_POSITION><![CDATA[ABOVE]]></PLOT_DATALABELS_BAR_POSITION>
+		<FOOTNOTE_ALIGNMENT><![CDATA[LEFT]]></FOOTNOTE_ALIGNMENT>
+		<XAXIS_TICK_LABEL_SKIP_MODE><![CDATA[AUTOMATIC]]></XAXIS_TICK_LABEL_SKIP_MODE>
+		<Y2AXIS_LOGARITHMIC_BASE><![CDATA[BASE_10]]></Y2AXIS_LOGARITHMIC_BASE>
+		<GRID><![CDATA[true]]></GRID>
+		<STYLE><![CDATA[Default]]></STYLE>
+		<TITLE_ALIGNMENT><![CDATA[LEFT]]></TITLE_ALIGNMENT>
+		<XAXIS_SCALE_INCREMENT><![CDATA[5.0]]></XAXIS_SCALE_INCREMENT>
+		<XAXIS_SCALE_MAXIMUM><![CDATA[50.0]]></XAXIS_SCALE_MAXIMUM>
+		<Y2AXIS_TICK_LABEL_ROTATE><![CDATA[HORIZONTAL]]></Y2AXIS_TICK_LABEL_ROTATE>
+		<Y2AXIS_SCALE_MINIMUM><![CDATA[10.0]]></Y2AXIS_SCALE_MINIMUM>
+		<PLOT_BORDER_COLOR.TRANSPARENT><![CDATA[true]]></PLOT_BORDER_COLOR.TRANSPARENT>
+		<PLOT_BORDER_COLOR.COLOR><![CDATA[-1184275]]></PLOT_BORDER_COLOR.COLOR>
+		<Y2AXIS_LINE_WIDTH><![CDATA[THINNEST]]></Y2AXIS_LINE_WIDTH>
+		<Y1AXIS_TICK_LABEL_ROTATE><![CDATA[HORIZONTAL]]></Y1AXIS_TICK_LABEL_ROTATE>
+		<Y2AXIS_SCALE_INCREMENT><![CDATA[20.0]]></Y2AXIS_SCALE_INCREMENT>
+		<PLOT_VGRID_WIDTH><![CDATA[THINNER]]></PLOT_VGRID_WIDTH>
+		<Y2AXIS_TITLE_ALIGNMENT><![CDATA[CENTER]]></Y2AXIS_TITLE_ALIGNMENT>
+		<SUBTITLE_ALIGNMENT><![CDATA[LEFT]]></SUBTITLE_ALIGNMENT>
+	</CustomValues>
+	<query>
+		<sql><![CDATA[WITH snapshotjoin AS(
+     select s.SNAP_TIME, DBID, s.instance_number, SNAP_ID, LAG(SNAP_ID, 1, 0) OVER (ORDER BY s.SNAP_TIME) AS PREV_SNAP_ID
+from stats$snapshot s
+      WHERE s.instance_number = ( SELECT instance_number FROM v$instance )
+      ORDER BY s.SNAP_TIME
+),
+hostcpu AS
+(select idle.SNAP_TIME, idle.tdif as idle_time, busy.tdif as busy_time from
+(select sj.SNAP_TIME, sn.stat_name
+             , (e.value - b.value)        tdif
+          from stats$osstat e
+             , stats$osstat b
+             , stats$osstatname sn
+             , snapshotjoin sj
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number
+           and b.osstat_id                = e.osstat_id
+           and sn.osstat_id               = b.osstat_id
+           and e.value - b.value        > 0
+           and sn.stat_name IN ('IDLE_TIME')) idle
+           INNER JOIN
+(select sj.SNAP_TIME, sn.stat_name
+             , (e.value - b.value)        tdif
+          from stats$osstat e
+             , stats$osstat b
+             , stats$osstatname sn
+             , snapshotjoin sj             
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number           
+           and b.osstat_id                = e.osstat_id
+           and sn.osstat_id               = b.osstat_id
+           and e.value - b.value        > 0
+           and sn.stat_name IN ('BUSY_TIME')) busy
+           ON idle.snap_time = busy.snap_time
+),
+inscpu AS
+(select dbcpu.SNAP_TIME, 'CPU used for Instance' as "name",  100* ((dbcpu.tdif + bgcpu.tdif)/1000000) / ((dbcpu.host_busy_time)/100) as "value" from
+(select sj.SNAP_TIME, sn.stat_name
+             , (e.value - b.value)        tdif
+             , host.busy_time host_busy_time             
+          from stats$sys_time_model e
+             , stats$sys_time_model b
+             , stats$time_model_statname sn
+             , snapshotjoin sj
+             , hostcpu host
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number
+           and sj.snap_time             = host.snap_time
+           and b.stat_id                = e.stat_id
+           and sn.stat_id               = e.stat_id
+           and e.value - b.value        > 0
+           and sn.stat_name IN ('DB CPU')) dbcpu
+ INNER JOIN
+ (select sj.SNAP_TIME, sn.stat_name
+             , (e.value - b.value)        tdif            
+          from stats$sys_time_model e
+             , stats$sys_time_model b
+             , stats$time_model_statname sn
+             , snapshotjoin sj            
+         where b.snap_id                = sj.PREV_SNAP_ID
+           and e.snap_id                = sj.SNAP_ID
+           and b.dbid                   = sj.DBID
+           and e.dbid                   = sj.DBID
+           and b.instance_number        = sj.instance_number
+           and e.instance_number        = sj.instance_number           
+           and b.stat_id                = e.stat_id
+           and sn.stat_id               = e.stat_id
+           and e.value - b.value        > 0
+           and sn.stat_name = 'background cpu time') bgcpu
+ ON dbcpu.snap_time = bgcpu.snap_time)
+ select * from(
+select  hostcpu.SNAP_TIME, 'Host CPU Usage' as "name", 100* (hostcpu.busy_time)/(hostcpu.busy_time + hostcpu.idle_time) as "value"      from hostcpu, snapshotjoin 
+where hostcpu.snap_time = snapshotjoin.snap_time
+UNION ALL 
+select inscpu.SNAP_TIME, inscpu."name" as "name", inscpu."value" as "value" from inscpu)
+where snap_time > to_date(:start_time, 'yy.mm.dd hh24:mi')
+and snap_time < to_date(:end_time,'yy.mm.dd hh24:mi') + 1
+order by SNAP_TIME, "name"]]></sql>
+		<binds>
+			<bind id="start_time">
+				<prompt><![CDATA[start_time (yy.mm.dd)]]></prompt>
+				<tooltip><![CDATA[start_time]]></tooltip>
+				<value><![CDATA[19.12.01]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+			<bind id="end_time">
+				<prompt><![CDATA[end_time (yy.mm.dd)]]></prompt>
+				<tooltip><![CDATA[end_time]]></tooltip>
+				<value><![CDATA[20.12.31]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+		</binds>
+	</query>
+		<pdf version="VERSION_1_7" compression="CONTENT">
+			<docproperty title="null" author="null" subject="null" keywords="null" />
+			<cell toppadding="2" bottompadding="2" leftpadding="2" rightpadding="2" horizontalalign="LEFT" verticalalign="TOP" wrap="true" />
+			<column>
+				<heading font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="FIRST_PAGE" />
+				<footing font="null" size="10" style="NORMAL" color="-16777216" rowshading="-1" labeling="NONE" />
+				<blob blob="NONE" zip="false" />
+			</column>
+			<table font="null" size="10" style="NORMAL" color="-16777216" userowshading="false" oddrowshading="-1" evenrowshading="-1" showborders="true" spacingbefore="12" spacingafter="12" horizontalalign="LEFT" />
+			<header enable="false" generatedate="false">
+				<data>
+				null				</data>
+			</header>
+			<footer enable="false" generatedate="false">
+				<data value="null" />
+			</footer>
+			<pagesetup papersize="LETTER" orientation="1" measurement="in" margintop="1.0" marginbottom="1.0" marginleft="1.0" marginright="1.0" />
+		</pdf>
+</display>
+</displays>
