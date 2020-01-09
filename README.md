@@ -3,8 +3,8 @@
 ## Setup Statpack
 Use below commands to install and schedule statpack
 
-$ORACLE_HOME/rdbms/admin/spcreate.sql
-$ORACLE_HOME/rdbms/admin/spauto.sql
+- [x] $ORACLE_HOME/rdbms/admin/spcreate.sql
+- [x] $ORACLE_HOME/rdbms/admin/spauto.sql
 
 More information on installing statpack can be found here: [https://oracle-base.com/articles/8i/statspack-8i](https://oracle-base.com/articles/8i/statspack-8i)
 
