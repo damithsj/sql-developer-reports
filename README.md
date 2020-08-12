@@ -1,3 +1,6 @@
+[![Support me on BMC](https://img.shields.io/badge/Support%20me-☕-orange.svg?style=for-the-badge)](https://www.buymeacoffee.com/dsj23)
+
+
 # Set of SQL Developer reports to visualize Statpack data and to dig deep with performance issues
 
 ## Setup Statpack
